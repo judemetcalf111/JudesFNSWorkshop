@@ -1,6 +1,6 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.11.3"
+julia_version = "1.11.6"
 manifest_format = "2.0"
 project_hash = "aa9db8ceacaad08de7486f083f85423bbca07b95"
 
@@ -1988,7 +1988,7 @@ version = "3.2.4+0"
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
-version = "0.8.1+2"
+version = "0.8.5+0"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -3009,8 +3009,6 @@ version = "0.5.29"
 [[deps.TimeseriesMakie]]
 deps = ["LinearAlgebra", "Makie", "Random"]
 git-tree-sha1 = "b2126a3aed6f4dbe553c7c9a3a56e4f274263dd4"
-repo-rev = "main"
-repo-url = "https://github.com/brendanjohnharris/TimeseriesPlots.jl"
 uuid = "5e3e9a77-7bbf-480c-931c-0802e2453f5a"
 version = "0.2.0"
 
