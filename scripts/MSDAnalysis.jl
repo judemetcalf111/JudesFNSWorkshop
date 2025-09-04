@@ -48,7 +48,7 @@ for file in csv_files
         dx = dx_view .- xi
         dy = dy_view .- yi
 
-        local_r2 = (dx.^2 .+ dy.^2).^(0.5) ./ (length(x)-n)
+        local_r2 = (dx.^2 .+ dy.^2).^0.5 ./ (length(x)-n)
         @inbounds newr2_sum .+= local_r2
 
     end
@@ -90,12 +90,12 @@ for file in csv_files
 
     tpos = endpoint                 # choose a spot
     ypos = (endpoint.^Coeffs[2]) .* (ℯ.^Coeffs[1]) .* 10   # y-value to match scale
-    eqn_string = "⟨|r|⟩ ~ t^$(round(Coeffs[2], digits=3))"
+    eqn_string = "⟨|r|⟩^2 ~ t^$(round(Coeffs[2], digits=3))"
 
 
     annotate!((tpos, ypos, text(eqn_string, :firebrick, 10, :left)))
 
-    outname = joinpath(output_dir, splitext(basename(file))[1] * "-MD" * ".pdf")
+    outname = joinpath(output_dir, splitext(basename(file))[1] * "-MDS" * ".pdf")
 
     # Save figure
 

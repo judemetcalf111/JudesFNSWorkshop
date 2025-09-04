@@ -1,9 +1,6 @@
 ### A Pluto.jl notebook ###
 # v0.20.15
-#! /bin/bash
-#=
-exec julia +1.10.10 -t 1 "${BASH_SOURCE[0]}" "$@"
-=#
+
 using Markdown
 using InteractiveUtils
 
@@ -51,7 +48,7 @@ begin
 	using Random
 	using DiffEqNoiseProcess
     using PlutoUI
-	include("noiseProcesses.jl")
+	using noiseProcesses.jl
 
     import FractionalNeuralSampling: Density, divide_dims
     import SpecialFunctions: gamma
@@ -138,7 +135,7 @@ begin # Generate a distribution to sample
     xmax = 7
     x0 = [3.0, 0.0] 
     p0 = [0.0, 0.0] # Be careful with types; use 0.0 not 0
-	k = 0.4
+	k = 0.2
 	
     center(t) = (xmax ./ 2) .* exp.( im * k * t)
 	
@@ -169,10 +166,10 @@ end
 
 # ╔═╡ b60add8e-22c4-42c3-a666-7753b0dac569
 begin
-	seeds = [27,42] #,132,156,109]#  ,5,3201,4325,2835,3746]
+	seeds = [27,42,132,156,109]#  ,5,3201,4325,2835,3746]
 	for seedvalue in seeds
 		α_value = 1.1
-		β_value = 0.2
+		β_value = 0.6
 		γ_value = 0.1 
 		L = aFractionalNeuralSampler(;
 									u0 = ArrayPartition(x0, p0),
@@ -186,13 +183,13 @@ begin
 		using Dates
 		hourminute = Dates.format(now(), "HH:MM")
 		filename = "tfns_a=$(α_value)_b=$(β_value)_g=$(γ_value)_k=$(k)-UnCorrLevy-" * hourminute
-
 		using CSV
 	    using DataFrames
 		sol = solve(L, EM(); dt = 0.001) # Takes about 5 seconds
 		x, y = eachrow(sol[1:2, :])
 		walkerdata = DataFrame(sol)
 		CSV.write(path * "/data/exp_raw/" * filename * ".csv", walkerdata)
+		
 		
 		xy[] = [Point2f([NaN, NaN])]
 		file = record(fig, path * "/data/sims/" * filename * ".mp4", range(1, length(sol), step=1000);

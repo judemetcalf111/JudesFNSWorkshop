@@ -1,11 +1,36 @@
 module JudesFNSWorkshop
-using CairoMakie
-using LinearAlgebra
-using Distributions
-using StableDistributions
-using SpecialFunctions
-using Random
-using DiffEqNoiseProcess
+export afns_f!,afns_g!
+
+using CairoMakie,
+		 Foresight,
+    	 DifferentialEquations,
+    	 FractionalNeuralSampling,
+    	 Distributions,
+    	 LinearAlgebra,
+		 StableDistributions,
+		 SpecialFunctions,
+		 Random,
+		 DiffEqNoiseProcess,
+    	 PlutoUI
+
+import FractionalNeuralSampling: Density, divide_dims
+import SpecialFunctions: gamma
+import RecursiveArrayTools: ArrayPartition
+
+function aFractionalNeuralSampler(;
+	                                 tspan, α, β, γ, u0, 𝜋,
+	                                 boundaries = nothing,
+	                                 noise_rate_prototype = zeros(2),
+	                                 noise = nothing,
+	                                 kwargs...)
+		if isnothing(noise)
+			noise = NoiseProcesses.LevyProcess!(α; ND = 2, W0 = zero(u0))
+		end
+
+	    Sampler(afns_f!, afns_g!; callback = boundaries, kwargs..., u0,
+	            noise_rate_prototype, noise,
+	            tspan, p = ((α, β, γ), 𝜋))
+end
 
 function clampComponents(x, maxSize)
     if (maxSize < 0)
@@ -513,5 +538,25 @@ function noiseGridToNoiseMat(G::NoiseGrid; params=:all)
     return X
 end
 
+
+function afns_f!(du, u, p, t)
+	    (α, β, γ), 𝜋 = p
+	    x, v = divide_dims(u, length(u) ÷ 2)
+
+		# Here we have replaced 𝜋 -> 𝜋(t)
+	    b = gradlogdensity(𝜋(t))(x) * gamma(α - 1) / (gamma(α / 2) .^ 2)
+	
+	    dx, dv = divide_dims(du, length(du) ÷ 2)
+	    dx .= γ .* b .+ β .* v
+	    dv .= β .* b
+end
+
+
+function afns_g!(du, u, p, t) # Same as original equations
+	    (α, β, γ), 𝜋 = p
+	    dx, dv = divide_dims(du, length(du) ÷ 2)
+	    dx .= γ^(1 / α) # ? × dL in the integrator.
+	    dv .= 0.0
+end
 
 end
