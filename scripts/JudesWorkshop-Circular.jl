@@ -48,7 +48,7 @@ begin
 	using Random
 	using DiffEqNoiseProcess
     using PlutoUI
-	using noiseProcesses.jl
+	using .JudesFNSWorkshop
 
     import FractionalNeuralSampling: Density, divide_dims
     import SpecialFunctions: gamma
@@ -166,10 +166,10 @@ end
 
 # ╔═╡ b60add8e-22c4-42c3-a666-7753b0dac569
 begin
-	seeds = [27,42,132,156,109]#  ,5,3201,4325,2835,3746]
+	seeds = [27,42]#  ,5,3201,4325,2835,3746]
 	for seedvalue in seeds
-		α_value = 1.1
-		β_value = 0.6
+		α_value = 1.25
+		β_value = 0.05
 		γ_value = 0.1 
 		L = aFractionalNeuralSampler(;
 									u0 = ArrayPartition(x0, p0),
