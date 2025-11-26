@@ -233,7 +233,7 @@ end
 #   α: Tail index for the Levy distribution (1 ≤ α ≤ 2)
 #   σ: Noise Strength
 #   μ: Memory fraction (0 ≤ μ ≤ 1)
-function FractionalLM(H::Float64, α::Float64; dt=nothing, tspan=nothing, N=nothing, μ=1.0, maxStep=nothing, ND=1, method=:slice, uncorNoise=false, seed=nothing, k = 1.0)
+function FractionalLM(H::Float64, α::Float64; γ = 1., dt=nothing, tspan=nothing, N=nothing, μ=1.0, maxStep=nothing, ND=1, method=:slice, uncorNoise=false, seed=nothing, k = 1.0)
     if (μ < 0 || μ > 1)
         error("μ must be in the range [0,1]")
     end
@@ -254,7 +254,7 @@ function FractionalLM(H::Float64, α::Float64; dt=nothing, tspan=nothing, N=noth
 
     # Precompute scaling factor
     G = (dt^(p+1-1/α))/(gamma(p+1.0) * (p+1.0))
-    # G = (dt^(p+1-1/α))/(p+1.0)
+    # G = (dt^(p+1-1/8765α))/(p+1.0)
     # G = (dt^(p+1))
 
 
@@ -289,11 +289,12 @@ function FractionalLM(H::Float64, α::Float64; dt=nothing, tspan=nothing, N=noth
             x[:,1] = G .* (dL[2:end,1]' * v_mat)' 
             x[:,2] = G .* (dL[2:end,2]' * v_mat)' 
         end 
-
+    
     end
     
     # TODO: NORMALISATION FACTOR BASED ON FBM
-    # x = x / dt
+    # Originally commented out with: x = x * dt, should we use some kind of α scaling of the 
+    # x vector, based on the power law scaling of the fractional moment of levy motion
 
     if (uncorNoise)
         return x, dL
@@ -557,6 +558,21 @@ function afns_g!(du, u, p, t) # Same as original equations
 	    dx, dv = divide_dims(du, length(du) ÷ 2)
 	    dx .= γ^(1 / α) # ? × dL in the integrator.
 	    dv .= 0.0
+end
+
+# To convert timeseries data easily to a heatmap in the `WhereInPath.jl` scripts
+function heatmapconvert(x, y; xminplot=-5, xmaxplot=5, yminplot=-5, ymaxplot=5, bins=200)
+    xbins = range(xminplot, xmaxplot; length=bins)
+    ybins = range(yminplot, ymaxplot; length=bins)
+    heat = zeros(Float64, size(xbins)[1], size(ybins)[1])
+    for (xx, yy) in zip(x, y)
+        xi = searchsortedfirst(xbins, xx)
+        yi = searchsortedfirst(ybins, yy)
+        if xi > 1 && xi ≤ size(xbins)[1] && yi > 1 && yi ≤ size(ybins)[1]
+            heat[xi, yi] += 1
+        end
+    end
+    return xbins, ybins, heat
 end
 
 end
