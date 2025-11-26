@@ -85,7 +85,6 @@ for file in csv_files
     # move legend outside
     plot!(xlabel = "t", ylabel = "⟨r⟩", legend = :outerright)
 
-
     endpoint = 0.002
 
     tpos = endpoint                 # choose a spot
