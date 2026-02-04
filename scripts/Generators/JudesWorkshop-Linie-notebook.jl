@@ -21,17 +21,6 @@ begin
 			 "PlutoUI"])
 end
 
-# ╔═╡ a5ec26ad-0811-4d2e-8656-69abed763f48
-# begin
-# 	Pkg.add(url = "https://github.com/brendanjohnharris/FractionalNeuralSampling.jl",
-# 	rev = "fully_fractional")
-# end
-
-# ╔═╡ 70d40689-cbdc-42c7-888f-e8c14c99d23c
-# begin
-# 	Pkg.add(url = "https://github.com/brendanjohnharris/TimeseriesPlots.jl")
-# end
-
 # ╔═╡ d24fd425-57bd-4964-8f5b-91a3566bb453
 begin
     using CairoMakie
@@ -48,6 +37,17 @@ begin
 
     set_theme!(foresight(:physics))
 end
+
+# ╔═╡ a5ec26ad-0811-4d2e-8656-69abed763f48
+# begin
+# 	Pkg.add(url = "https://github.com/brendanjohnharris/FractionalNeuralSampling.jl",
+# 	rev = "fully_fractional")
+# end
+
+# ╔═╡ 70d40689-cbdc-42c7-888f-e8c14c99d23c
+# begin
+# 	Pkg.add(url = "https://github.com/brendanjohnharris/TimeseriesPlots.jl")
+# end
 
 # ╔═╡ 50ce1e9e-e5e1-4ab4-82d9-18ef2526c63f
 md"""

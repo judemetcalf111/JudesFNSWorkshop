@@ -1,13 +1,12 @@
-using DrWatson
-@quickactivate("JudesFNSWorkshop")
+module noiseProcesses
 using CairoMakie
 using Distributions
 using StableDistributions
 using SpecialFunctions
 using Random
 using DiffEqNoiseProcess
-import Pkg
-Pkg.add(url = "https://github.com/uow-statistics/Brownian.jl.git")
+# import Pkg
+# Pkg.add(url = "https://github.com/uow-statistics/Brownian.jl.git")
 # THIS IS INTENDED TO BE A CLEANER (AND MORE CORRECT) VERSION OF noise.jl
 
 function clampComponents(x, maxSize)
@@ -483,7 +482,6 @@ function noiseMatToNoiseGrid(X; dt=nothing, tspan=nothing, t=nothing, )
     # -- Convert Matrix to Vector of 4x4 Matrices (Noise on momenta) --
     # Convert to vector of noise vectors
 
-    Main.@infiltrate
     v = vec([X_padded[i,:] for i in axes(X_padded, 1)])
 
     v_grid = NoiseGrid(t, v)
@@ -515,4 +513,6 @@ function noiseGridToNoiseMat(G::NoiseGrid; params=:all)
         return X[:,M:end]
     end
     return X
+end
+
 end

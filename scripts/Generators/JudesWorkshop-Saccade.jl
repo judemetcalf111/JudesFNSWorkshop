@@ -6,38 +6,14 @@ using InteractiveUtils
 
 # ╔═╡ b618183f-9fd3-4e77-9623-11c85c774f02
 begin
-	# import Pkg
+	import Pkg
 	using DrWatson
-	path = "/Users/chardiol/Desktop/Theory of Brain/FNS-Julia/JudesFNSWorkshop" # Replace with your own path
+	path = "/Users/chardiol/Desktop/Theory of Brain/FNS-Julia/JudesFNSWorkshop"
 	quickactivate(path)
 end
 
-# # ╔═╡ afbaee5e-a6f8-49f9-9756-96421ad76ff1
-# begin
-#     Pkg.add(["CSV",
-# 			 "Dates",
-# 			 "DataFrames",
-# 			 "Distributions",
-#              "LinearAlgebra",
-# 			 "SpecialFunctions",
-# 			 "RecursiveArrayTools",
-# 			 "PlutoUI"])
-# end
-
-# ╔═╡ a5ec26ad-0811-4d2e-8656-69abed763f48
-# begin
-# 	Pkg.add(url = "https://github.com/brendanjohnharris/FractionalNeuralSampling.jl",
-# 	rev = "fully_fractional")
-# end
-
-# # ╔═╡ 70d40689-cbdc-42c7-888f-e8c14c99d23c
-# begin
-# 	Pkg.add(url = "https://github.com/brendanjohnharris/TimeseriesPlots.jl")
-# end
-
 # ╔═╡ d24fd425-57bd-4964-8f5b-91a3566bb453
 begin
-	using Revise, Infiltrator
     using CairoMakie
     using Foresight
     using DifferentialEquations
@@ -49,7 +25,8 @@ begin
 	using Random
 	using DiffEqNoiseProcess
     using PlutoUI
-	include("noiseProcesses.jl")
+
+	include(srcdir("JudesFNSWorkshop.jl"))
 
     import FractionalNeuralSampling: Density, divide_dims
     import SpecialFunctions: gamma
@@ -107,10 +84,8 @@ function afns_f!(du, u, p, t)
 	    dv .= β .* b
 	end
 
-
 # ╔═╡ 131da237-ca04-4793-b954-12e3c56c47d9
 function afns_g!(du, u, p, t) # Same as original equations
-	Main.@infiltrate
 	    (α, β, γ), 𝜋 = p
 	    dx, dv = divide_dims(du, length(du) ÷ 2)
 	    dx .= γ^(1 / α) # ? × dL in the integrator.
@@ -121,7 +96,7 @@ function afns_g!(du, u, p, t) # Same as original equations
 function aFractionalNeuralSampler(;
 	                                 tspan, α, β, γ, u0, 𝜋,
 	                                 boundaries = nothing,
-	                                 noise_rate_prototype = zeros(2),
+	                                 noise_rate_prototype = similar(u0),
 	                                 noise = nothing,
 	                                 kwargs...)
 		if isnothing(noise)
@@ -135,23 +110,24 @@ end
 
 # ╔═╡ 6db1a2f3-eac7-4a22-876a-cbbbb642ff48
 begin # Generate a distribution to sample
-    xmax = 7
+    xmax = 40
     x0 = [3.0, 0.0] 
     p0 = [0.0, 0.0] # Be careful with types; use 0.0 not 0
-	k = 0.02
-	
-    center(t) = (xmax ./ 2) .* exp.( im * k * t)
-	
+	k = 0.08 
+
+    center(t) = -im .* (xmax ./ 2) .* exp.( im .* (π./3) .* cos.(k .* t))
+
     wells(t) = [MvNormal([real(center(t)), imag(center(t))], I(2))]
 
     G(t) = MixtureModel(wells(t),[1]) |> Density
+    # G(t) = MixtureModel([MvNormal([0*t,0*t],I(2))],[1])|> Density
 end
 
 # ╔═╡ 6db08281-8842-4eba-bf94-808454fa05c6
 begin
 	using TimeseriesMakie
  	fig = Figure()
-	
+
 	xs = range(-xmax, xmax, length = 200)
 	Xs = collect.(Iterators.product(xs, xs))
 	X = Observable(G(0).(Xs)) # For recording
@@ -169,46 +145,36 @@ end
 
 # ╔═╡ b60add8e-22c4-42c3-a666-7753b0dac569
 begin
+	global α_value = 2.0
+	global β_value = 0.4
+	global γ_value = 0.1
+	fullpath = path * "/data/exp_raw/SaccadeData/a=$(α_value)/b=$(β_value)/g=$(γ_value)"
+	mkpath(fullpath)
 
-	H = 0.7       # Hurst parameter
-	timespan = 10.
-	δt = 0.001
-	α_value = 1.1
-
-	CorrNoiseMatrix = JudesFNSWorkshop.FractionalLM(H, α_value;
-								   dt = δt, tspan = timespan, ND = 2)
-	# → N×ND matrix
-
-	CorrelatedNoise = JudesFNSWorkshop.noiseMatToNoiseGrid(CorrNoiseMatrix; dt=δt, tspan=timespan)
-
-	seeds = [27]#,42,132,156,109,5,3201,4325,2835,3746]
-	
+	timespan = 50000.0
+	seeds = [3202]#,5,3201]#,4325,2835,3746,2343,29,145,7467] 
 	for seedvalue in seeds
-		β_value = 0.2
-		γ_value = 0.1 
+
 		L = aFractionalNeuralSampler(;
-									u0 = ArrayPartition([0.0, 0.0], [0.0, 0.0]),
+									u0 = ArrayPartition(x0, p0),
 									tspan = timespan,
 									α = α_value, # Tail index
 									β = β_value, # Momentum strength
 									γ = γ_value, # Noise strength
 									𝜋 = G, # The target distribution
-									noise = CorrelatedNoise,
 									seed = seedvalue)
-		
+
 		using Dates
 		hourminute = Dates.format(now(), "HH:MM")
-		filename = "tfns_a=$(α_value)_b=$(β_value)_g=$(γ_value)_k=$(k)-CorrLevy-" * hourminute
+		filename = "tfns_a=$(α_value)_b=$(β_value)_g=$(γ_value)_pendulum-UnCorrLevy-" * hourminute
 		using CSV
 	    using DataFrames
-		sol = solve(L, EM(); dt = δt) 
-		x, y = eachrow(sol[1:2, :])
-
-		
+		sol = solve(L, EM(); dt = 0.001) # Takes about 5 seconds
+		local x, y = eachrow(sol[1:2, :])
 		walkerdata = DataFrame(sol)
-		CSV.write(path * "/data/exp_raw/" * filename * ".csv", walkerdata)
-		
-		
+
+		CSV.write(fullpath * '/' * filename * ".csv", walkerdata)
+
 		xy[] = [Point2f([NaN, NaN])]
 		file = record(fig, path * "/data/sims/" * filename * ".mp4", range(1, length(sol), step=1000);
 		        framerate = 48) do i
@@ -217,48 +183,9 @@ begin
 			xy[] = push!(xy[], Point2f(sol[1:2, i]))
 			length(xy[]) > 100 && popfirst!(xy[])
 			xy_last[] = last(xy[])
-
 		end
 	end
 end
-
-# ╔═╡ a0ea8f09-296b-4782-8d4c-dd5ca738e2af
-# begin # Run time-varying simulation
-# 	  # Commented out are the user inputs for parameters whenrunning through the REPL 
-
-	
-# 	# print("Tail Index? ")
-# 	# α_value = readline()
-# 	α_value = 1.1 #parse(Float64, α_value)
-# 	# print("Momentum Strength? ")
-# 	# β_value = readline()
-# 	β_value = 0.2 #parse(Float64, β_value)
-# 	# print("Noise Strength? ")
-# 	# γ_value = readline()
-# 	γ_value = 0.1 #parse(Float64, γ_value)
-# 	L = aFractionalNeuralSampler(;
-# 								u0 = ArrayPartition(x0, p0),
-# 								tspan = 5000.0,
-# 								α = α_value, # Tail index
-# 								β = β_value, # Momentum strength
-# 								γ = γ_value, # Noise strength
-# 								𝜋 = G, # The target distribution
-# 								seed = 41)
-# end
-
-# ╔═╡ cd9f5ac8-cdbf-45b7-af67-1ba33c7df82d
-begin
-	# filename = "tfns_a=$(α_value)_b=$(β_value)_g=$(γ_value)-UnCorrLevy"
-	# using CSV
- #    using DataFrames
-	# sol = solve(L, EM(); dt = 0.001) # Takes about 5 seconds
-	# x, y = eachrow(sol[1:2, :])
-	# walkerdata = DataFrame(sol)
-	# CSV.write(path * "/data/exp_raw/" * filename * ".csv", walkerdata)
-end
-
-# ╔═╡ d4306859-8312-4a89-85e8-c76c2a3a19b6
-
 
 # ╔═╡ Cell order:
 # ╠═b618183f-9fd3-4e77-9623-11c85c774f02
@@ -277,4 +204,3 @@ end
 # ╠═a0ea8f09-296b-4782-8d4c-dd5ca738e2af
 # ╠═cd9f5ac8-cdbf-45b7-af67-1ba33c7df82d
 # ╠═b60add8e-22c4-42c3-a666-7753b0dac569
-# ╠═d4306859-8312-4a89-85e8-c76c2a3a19b6

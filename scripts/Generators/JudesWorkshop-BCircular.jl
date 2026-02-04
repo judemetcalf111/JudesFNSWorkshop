@@ -1,9 +1,6 @@
 ### A Pluto.jl notebook ###
 # v0.20.15
-#! /bin/bash
-#=
-exec julia +1.10.10 -t 1 "${BASH_SOURCE[0]}" "$@"
-=#
+
 using Markdown
 using InteractiveUtils
 
@@ -13,29 +10,6 @@ begin
 	using DrWatson
 	path = "/Users/chardiol/Desktop/Theory of Brain/FNS-Julia/JudesFNSWorkshop"
 	quickactivate(path)
-end
-
-# ╔═╡ afbaee5e-a6f8-49f9-9756-96421ad76ff1
-begin
-    Pkg.add(["CSV",
-			 "Dates",
-			 "DataFrames",
-			 "Distributions",
-             "LinearAlgebra",
-			 "SpecialFunctions",
-			 "RecursiveArrayTools",
-			 "PlutoUI"])
-end
-
-# ╔═╡ a5ec26ad-0811-4d2e-8656-69abed763f48
-begin
-	Pkg.add(url = "https://github.com/brendanjohnharris/FractionalNeuralSampling.jl",
-	rev = "fully_fractional")
-end
-
-# ╔═╡ 70d40689-cbdc-42c7-888f-e8c14c99d23c
-begin
-	Pkg.add(url = "https://github.com/brendanjohnharris/TimeseriesPlots.jl")
 end
 
 # ╔═╡ d24fd425-57bd-4964-8f5b-91a3566bb453
@@ -51,7 +25,10 @@ begin
 	using Random
 	using DiffEqNoiseProcess
     using PlutoUI
-	include("noiseProcesses.jl")
+	using Infiltrator
+	using ProgressBars
+
+	include(srcdir("JudesFNSWorkshop.jl"))
 
     import FractionalNeuralSampling: Density, divide_dims
     import SpecialFunctions: gamma
@@ -100,14 +77,13 @@ To introduce a time-varying potential, we need to turn ``\pi`` into a function o
 function afns_f!(du, u, p, t)
 	    (α, β, γ), 𝜋 = p
 	    x, v = divide_dims(u, length(u) ÷ 2)
-
 		# Here we have replaced 𝜋 -> 𝜋(t)
 	    b = gradlogdensity(𝜋(t))(x) * gamma(α - 1) / (gamma(α / 2) .^ 2)
-	
+
 	    dx, dv = divide_dims(du, length(du) ÷ 2)
 	    dx .= γ .* b .+ β .* v
 	    dv .= β .* b
-	end
+end
 
 # ╔═╡ 131da237-ca04-4793-b954-12e3c56c47d9
 function afns_g!(du, u, p, t) # Same as original equations
@@ -135,16 +111,30 @@ end
 
 # ╔═╡ 6db1a2f3-eac7-4a22-876a-cbbbb642ff48
 begin # Generate a distribution to sample
-    xmax = 7
+    xmax = 20
     x0 = [3.0, 0.0] 
-    p0 = [0.0, 0.0] # Be careful with types; use 0.0 not 0
-	k = 0.4
-	
-    center(t) = (xmax ./ 2) .* exp.( im * k * t)
-	
-    wells(t) = [MvNormal([real(center(t)), imag(center(t))], I(2))]
+    p0 = [0.0, 0.0]     # Be careful with types; use 0.0 not 0
+	k = 0.2
+    timespan = 5000.0
+    δt = 0.001
 
-    G(t) = MixtureModel(wells(t),[1]) |> Density
+	swidth = 5 # Weak: 5, Far: 5, Normal: 10
+	shelf_height = (5^2) / 2 # Weak: (5^2) / 2, Far: (10^2) / 2, Normal: (5^2) / 2
+
+    wellseed = 50
+    Random.seed!(wellseed)
+    wellsrandomgen = rand(Normal(0, √δt),Int(timespan/δt+1))
+    wellsrandom = cumsum(wellsrandomgen)
+    center(t) = (xmax ./ 2) .* exp.( im * k * wellsrandom[round(Int,t/δt)])
+
+	weights(s,p) = ( 1 + ( ( 1 / s ) * exp( p*(1 - ( 1 / s^2 ) )) ) )^(-1)
+
+	wells(t) = [ MvNormal([real(center(t+δt)), imag(center(t+δt))], I(2)) ,
+					MvNormal( [real(center(t+δt)), imag(center(t+δt))], ( swidth^2 ) * I(2)) 
+					]
+
+    G(t) = MixtureModel(wells(t), [1-weights(swidth,shelf_height),weights(swidth,shelf_height)]) |> Density
+
 end
 
 # ╔═╡ 6db08281-8842-4eba-bf94-808454fa05c6
@@ -169,30 +159,48 @@ end
 
 # ╔═╡ b60add8e-22c4-42c3-a666-7753b0dac569
 begin
-	seeds = [27,42] #,132,156,109]#  ,5,3201,4325,2835,3746]
-	for seedvalue in seeds
-		α_value = 1.1
-		β_value = 0.2
-		γ_value = 0.1 
+	# global α_value = 1.5
+	global β_value = 0.01
+	global γ_value = 0.1
+	fullpath = path * "/data/exp_raw/"
+	mkpath(fullpath)
+
+	seeds = [ 27,
+				5,
+				6
+	]
+	
+	seedvalue = 5
+
+	αs = 1.1:0.1:2.0
+	# 			208,
+	# 			600,
+	# 			32,
+	# 			19
+	# ]
+
+	# for seedvalue in ProgressBar(seeds)
+	for α_value in ProgressBar(αs)
+
 		L = aFractionalNeuralSampler(;
 									u0 = ArrayPartition(x0, p0),
-									tspan = 5000.0,
+									tspan = timespan,
 									α = α_value, # Tail index
 									β = β_value, # Momentum strength
 									γ = γ_value, # Noise strength
-									𝜋 = G, # The target distribution
+									𝜋 = G,       # The target distribution
 									seed = seedvalue)
 		
 		using Dates
 		hourminute = Dates.format(now(), "HH:MM")
-		filename = "tfns_a=$(α_value)_b=$(β_value)_g=$(γ_value)_k=$(k)-UnCorrLevy-" * hourminute
-
+		filename = "tfnsBrownian_a=$(α_value)_b=$(β_value)_g=$(γ_value)_k=$(k)_xmax=$(xmax)-UnCorrLevy-WeakPlateau" * hourminute
 		using CSV
 	    using DataFrames
-		sol = solve(L, EM(); dt = 0.001) # Takes about 5 seconds
+		sol = solve(L, EM(); dt = δt) # Takes about 5 seconds
 		x, y = eachrow(sol[1:2, :])
 		walkerdata = DataFrame(sol)
-		CSV.write(path * "/data/exp_raw/" * filename * ".csv", walkerdata)
+
+		CSV.write(fullpath * filename * ".csv", walkerdata)
 		
 		xy[] = [Point2f([NaN, NaN])]
 		file = record(fig, path * "/data/sims/" * filename * ".mp4", range(1, length(sol), step=1000);
@@ -202,59 +210,10 @@ begin
 			xy[] = push!(xy[], Point2f(sol[1:2, i]))
 			length(xy[]) > 100 && popfirst!(xy[])
 			xy_last[] = last(xy[])
+
+
+
 		end
 	end
+	# end
 end
-
-# ╔═╡ a0ea8f09-296b-4782-8d4c-dd5ca738e2af
-# begin # Run time-varying simulation
-# 	  # Commented out are the user inputs for parameters whenrunning through the REPL 
-
-	
-# 	# print("Tail Index? ")
-# 	# α_value = readline()
-# 	α_value = 1.1 #parse(Float64, α_value)
-# 	# print("Momentum Strength? ")
-# 	# β_value = readline()
-# 	β_value = 0.2 #parse(Float64, β_value)
-# 	# print("Noise Strength? ")
-# 	# γ_value = readline()
-# 	γ_value = 0.1 #parse(Float64, γ_value)
-# 	L = aFractionalNeuralSampler(;
-# 								u0 = ArrayPartition(x0, p0),
-# 								tspan = 5000.0,
-# 								α = α_value, # Tail index
-# 								β = β_value, # Momentum strength
-# 								γ = γ_value, # Noise strength
-# 								𝜋 = G, # The target distribution
-# 								seed = 41)
-# end
-
-# ╔═╡ cd9f5ac8-cdbf-45b7-af67-1ba33c7df82d
-begin
-	# filename = "tfns_a=$(α_value)_b=$(β_value)_g=$(γ_value)-UnCorrLevy"
-	# using CSV
- #    using DataFrames
-	# sol = solve(L, EM(); dt = 0.001) # Takes about 5 seconds
-	# x, y = eachrow(sol[1:2, :])
-	# walkerdata = DataFrame(sol)
-	# CSV.write(path * "/data/exp_raw/" * filename * ".csv", walkerdata)
-end
-
-# ╔═╡ Cell order:
-# ╠═b618183f-9fd3-4e77-9623-11c85c774f02
-# ╠═afbaee5e-a6f8-49f9-9756-96421ad76ff1
-# ╠═a5ec26ad-0811-4d2e-8656-69abed763f48
-# ╠═70d40689-cbdc-42c7-888f-e8c14c99d23c
-# ╠═d24fd425-57bd-4964-8f5b-91a3566bb453
-# ╠═50ce1e9e-e5e1-4ab4-82d9-18ef2526c63f
-# ╠═2aec5c65-5e24-4327-8038-ceb70ff29d8d
-# ╠═8b1a7d48-426a-4c76-b63a-61693a457281
-# ╠═3a24c88c-fca5-4643-85c0-2190c4a13b5d
-# ╠═131da237-ca04-4793-b954-12e3c56c47d9
-# ╠═b159f245-f421-4323-8958-c0df43f5b994
-# ╠═6db1a2f3-eac7-4a22-876a-cbbbb642ff48
-# ╠═6db08281-8842-4eba-bf94-808454fa05c6
-# ╠═a0ea8f09-296b-4782-8d4c-dd5ca738e2af
-# ╠═cd9f5ac8-cdbf-45b7-af67-1ba33c7df82d
-# ╠═b60add8e-22c4-42c3-a666-7753b0dac569
